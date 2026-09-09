@@ -1,0 +1,170 @@
+name: Build VideoRecapCutter V5 Windows
+
+on:
+  push:
+    branches: [video-recap-cutter]
+    paths:
+      - 'app_v5.py'
+      - 'app_v4.py'
+      - 'app_v3.py'
+      - 'app_v2.py'
+      - 'recap_core_v4.py'
+      - 'recap_core_v2.py'
+      - 'voice_clone_worker.py'
+      - 'INSTALL-VOICE-CLONE.bat'
+      - 'requirements.txt'
+      - '.github/workflows/build-v5-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: video-recap-cutter
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download FFmpeg essentials
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path tools | Out-Null
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_unpack -Force
+          $bin = Get-ChildItem -Path ffmpeg_unpack -Recurse -Directory -Filter bin | Select-Object -First 1
+          Copy-Item "$($bin.FullName)\ffmpeg.exe" tools\ffmpeg.exe
+          Copy-Item "$($bin.FullName)\ffprobe.exe" tools\ffprobe.exe
+
+      - name: Download Piper Windows runtime
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip" -OutFile piper.zip
+          Expand-Archive piper.zip -DestinationPath piper_unpack -Force
+          $piperDir = Get-ChildItem -Path piper_unpack -Recurse -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'piper.exe') } | Select-Object -First 1
+          if (-not $piperDir) { throw 'Không tìm thấy piper.exe sau khi giải nén' }
+          New-Item -ItemType Directory -Force -Path piper_runtime | Out-Null
+          Copy-Item "$($piperDir.FullName)\*" piper_runtime -Recurse -Force
+
+      - name: Download bundled Vietnamese Piper voice
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path voice_bundle | Out-Null
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx"
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx.json?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx.json"
+
+      - name: Build V5 EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed `
+            --name VideoRecapCutter `
+            --add-binary "tools\ffmpeg.exe;." `
+            --add-binary "tools\ffprobe.exe;." `
+            --collect-all selenium `
+            --collect-all undetected_chromedriver `
+            --collect-submodules edge_tts `
+            --collect-submodules google.generativeai `
+            --hidden-import selenium.webdriver.chrome.options `
+            --hidden-import selenium.webdriver.chrome.service `
+            --hidden-import selenium.webdriver.common.by `
+            --hidden-import selenium.webdriver.common.keys `
+            --hidden-import selenium.webdriver.support.ui `
+            --hidden-import undetected_chromedriver `
+            --hidden-import requests `
+            app_v5.py
+
+      - name: Prepare V5 full package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voices | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voice_profiles | Out-Null
+          New-Item -ItemType Directory -Force -Path package\chrome_web_profile | Out-Null
+          New-Item -ItemType Directory -Force -Path package\piper | Out-Null
+          New-Item -ItemType Directory -Force -Path package\source | Out-Null
+
+          Copy-Item dist\VideoRecapCutter.exe package\VideoRecapCutter.exe
+          Copy-Item tools\ffmpeg.exe package\ffmpeg.exe
+          Copy-Item tools\ffprobe.exe package\ffprobe.exe
+          Copy-Item piper_runtime\* package\piper -Recurse -Force
+          Copy-Item voice_bundle\* package\voices -Force
+          Copy-Item INSTALL-VOICE-CLONE.bat package\INSTALL-VOICE-CLONE.bat
+          Copy-Item voice_clone_worker.py package\voice_clone_worker.py
+
+          Copy-Item app_v5.py package\source\app_v5.py
+          Copy-Item app_v4.py package\source\app_v4.py
+          Copy-Item app_v3.py package\source\app_v3.py
+          Copy-Item app_v2.py package\source\app_v2.py
+          Copy-Item recap_core_v4.py package\source\recap_core_v4.py
+          Copy-Item recap_core_v2.py package\source\recap_core_v2.py
+          Copy-Item voice_clone_worker.py package\source\voice_clone_worker.py
+          Copy-Item requirements.txt package\source\requirements.txt
+
+          @"
+          VIDEO RECAP CUTTER V5 - BAN DAY DU
+
+          KHONG CAN CHEP THEM FILE FIX RIENG.
+
+          LAN DAU:
+          1. Giai nen ZIP ra mot thu muc rieng.
+          2. Neu dung Giong cua toi / Voice Clone: chay INSTALL-VOICE-CLONE.bat MOT LAN.
+          3. File cai da gom san: Coqui TTS 0.27.5 + Transformers 4.57.6 + HuggingFace Hub tuong thich.
+          4. Mo VideoRecapCutter.exe.
+          5. Nhap VietVoice hoac them WAV/MP3 mau, sau do bam Nghe thu giong.
+          6. Lan dau XTTS se hien hop xac nhan dieu khoan CPML. Chi dong y neu ban da doc va chap nhan dieu khoan cho muc dich su dung cua minh.
+          7. Sau khi dong y, model XTTS v2 co the tai file lon. Cho tai xong, tool se mo audio nghe thu.
+
+          LUONG RECAP:
+          - Tool gui VIDEO GOC len ChatGPT/Gemini Web.
+          - Tu dong chen Lay X / Bo Y + ngon ngu vao prompt recap.
+          - Khoa SRT theo timeline video sau cat.
+          - Tao TTS truoc, sau do cat video va ghep giong vao video cuoi.
+          - Neu loi Nghe thu, V5 hien loi that + log cuoi, khong con popup chi ghi None.
+          "@ | Out-File -Encoding utf8 package\DOC-TRUOC.txt
+
+          @"
+          KHO GIỌNG MẪU CỦA BẠN
+          - Bấm Thêm 1 giọng mẫu để lưu WAV/MP3.
+          - Hoặc bấm Nhập thư mục VietVoice và chọn data\voice-profiles.
+          - Các giọng được lưu trong voice_profiles và tự hiện lại lần sau.
+          "@ | Out-File -Encoding utf8 package\voice_profiles\README.txt
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          if (Test-Path VideoRecapCutter-V5-Full.zip) { Remove-Item VideoRecapCutter-V5-Full.zip -Force }
+          Compress-Archive -Path package\* -DestinationPath VideoRecapCutter-V5-Full.zip -CompressionLevel Optimal
+          Get-Item VideoRecapCutter-V5-Full.zip | Format-List Name,Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VideoRecapCutter-V5-Full
+          path: VideoRecapCutter-V5-Full.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish stable V5 release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v5-latest --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete v5-latest --repo "${{ github.repository }}" --cleanup-tag -y
+          }
+          gh release create v5-latest VideoRecapCutter-V5-Full.zip `
+            --repo "${{ github.repository }}" `
+            --target "${{ github.sha }}" `
+            --title "VideoRecapCutter V5 Full" `
+            --notes "V5 full: integrated XTTS installer compatibility fix, visible CPML first-run consent, real voice-preview errors/logs, V4 mapped ChatGPT/Gemini recap workflow."
