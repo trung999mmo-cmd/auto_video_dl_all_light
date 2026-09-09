@@ -52,24 +52,29 @@ python -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 goto :FAIL
 
 echo.
-echo [1/3] Cai PyTorch / torchaudio...
+echo [1/4] Cai PyTorch / torchaudio...
 python -m pip install --upgrade torch torchaudio
 if errorlevel 1 goto :FAIL
 
 echo.
-echo [2/3] Cai torchcodec neu can...
+echo [2/4] Cai torchcodec neu can...
 python -m pip install --upgrade torchcodec
-if errorlevel 1 echo Canh bao: torchcodec khong cai duoc, tiep tuc thu Coqui TTS.
+if errorlevel 1 echo Canh bao: torchcodec khong cai duoc, tiep tuc.
 
 echo.
-echo [3/3] Cai Coqui TTS ban moi co wheel Windows...
+echo [3/4] Cai Coqui TTS ban moi co wheel Windows...
 python -m pip uninstall -y TTS >nul 2>nul
 python -m pip install --upgrade "coqui-tts==0.27.5"
 if errorlevel 1 goto :FAIL
 
 echo.
+echo [4/4] Sua tuong thich Transformers cho XTTS...
+python -m pip install --upgrade --force-reinstall "transformers==4.57.6" "huggingface-hub>=0.36.2,<1.0"
+if errorlevel 1 goto :FAIL
+
+echo.
 echo Dang kiem tra XTTS...
-python -c "from TTS.api import TTS; import torch; print('XTTS READY - torch', torch.__version__)"
+python -c "from TTS.api import TTS; import torch, transformers; print('XTTS READY - torch', torch.__version__, '- transformers', transformers.__version__)"
 if errorlevel 1 goto :FAIL
 
 echo.
