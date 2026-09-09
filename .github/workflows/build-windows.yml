@@ -33,6 +33,24 @@ jobs:
           Copy-Item "$($bin.FullName)\ffmpeg.exe" tools\ffmpeg.exe
           Copy-Item "$($bin.FullName)\ffprobe.exe" tools\ffprobe.exe
 
+      - name: Download Piper Windows runtime
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip" -OutFile piper.zip
+          Expand-Archive piper.zip -DestinationPath piper_unpack -Force
+          $piperDir = Get-ChildItem -Path piper_unpack -Recurse -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'piper.exe') } | Select-Object -First 1
+          if (-not $piperDir) { throw 'Không tìm thấy piper.exe sau khi giải nén' }
+          New-Item -ItemType Directory -Force -Path piper_runtime | Out-Null
+          Copy-Item "$($piperDir.FullName)\*" piper_runtime -Recurse -Force
+
+      - name: Download bundled Vietnamese Piper voice
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path voice_bundle | Out-Null
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx"
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx.json?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx.json"
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/MODEL_CARD?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium-MODEL_CARD.txt"
+
       - name: Build EXE
         shell: pwsh
         run: |
@@ -43,20 +61,45 @@ jobs:
             --hidden-import selenium `
             --hidden-import edge_tts `
             --hidden-import google.generativeai `
-            app.py
+            --hidden-import requests `
+            app_v2.py
 
-      - name: Prepare package
+      - name: Prepare complete editable package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voices | Out-Null
+          New-Item -ItemType Directory -Force -Path package\piper | Out-Null
+          New-Item -ItemType Directory -Force -Path package\source | Out-Null
+
           Copy-Item dist\VideoRecapCutter.exe package\VideoRecapCutter.exe
+          Copy-Item tools\ffmpeg.exe package\ffmpeg.exe
+          Copy-Item tools\ffprobe.exe package\ffprobe.exe
+          Copy-Item piper_runtime\* package\piper -Recurse -Force
+          Copy-Item voice_bundle\* package\voices -Force
+          Copy-Item VOICES-README.txt package\voices\README.txt
+          Copy-Item INSTALL-VOICE-CLONE.bat package\INSTALL-VOICE-CLONE.bat
+          Copy-Item voice_clone_worker.py package\voice_clone_worker.py
           Copy-Item README-VIDEO-RECAP.md package\HUONG-DAN.txt
-          Compress-Archive -Path package\* -DestinationPath VideoRecapCutter-Windows.zip -Force
+
+          Copy-Item app_v2.py package\source\app_v2.py
+          Copy-Item recap_core_v2.py package\source\recap_core_v2.py
+          Copy-Item voice_clone_worker.py package\source\voice_clone_worker.py
+          Copy-Item requirements.txt package\source\requirements.txt
+          Copy-Item BUILD-V2-WINDOWS.bat package\source\BUILD-V2-WINDOWS.bat
+          Copy-Item .github\workflows\build-windows.yml package\source\build-windows.yml
+
+          @"
+          Video Recap Cutter V2
+          - Chạy: VideoRecapCutter.exe
+          - Source để sửa: thư mục source
+          - Giọng Piper thêm vào: thư mục voices (.onnx + .onnx.json)
+          - Voice Clone audio mẫu: chạy INSTALL-VOICE-CLONE.bat một lần, sau đó chọn Voice Clone XTTS trong tool.
+          "@ | Out-File -Encoding utf8 package\DOC-TRUOC.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VideoRecapCutter-Windows
-          path: |
-            package/VideoRecapCutter.exe
-            VideoRecapCutter-Windows.zip
+          name: VideoRecapCutter-V2-Full
+          path: package/**
           if-no-files-found: error
+          retention-days: 90
