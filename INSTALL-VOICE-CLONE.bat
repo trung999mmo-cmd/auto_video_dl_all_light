@@ -6,8 +6,8 @@ echo ============================================================
 echo  CAI VOICE CLONE XTTS - CHAY MOT LAN
 echo ============================================================
 echo.
-echo Phan nay la tuy chon. Edge TTS va Piper Offline khong can cai.
-echo XTTS se tao moi truong rieng va tai model lon khi dung lan dau.
+echo Phan nay chi can khi dung GIONG MAU / Voice Clone.
+echo Edge TTS va Piper Offline khong can cai phan nay.
 echo Uu tien Python 3.11, neu khong co se dung Python 3.10.
 echo.
 pause
@@ -23,19 +23,14 @@ if errorlevel 1 (
 set "PYVER="
 py -3.11 -c "import sys" >nul 2>nul
 if not errorlevel 1 set "PYVER=-3.11"
-
 if not defined PYVER (
   py -3.10 -c "import sys" >nul 2>nul
   if not errorlevel 1 set "PYVER=-3.10"
 )
-
 if not defined PYVER (
   echo.
-  echo Khong tim thay Python 3.10 hoac 3.11 tu Python Launcher.
-  echo Cac ban Python dang duoc py nhan:
+  echo Khong tim thay Python 3.10 hoac 3.11.
   py -0p
-  echo.
-  echo Python 3.12 hien khong duoc dung cho bo XTTS nay.
   pause
   exit /b 1
 )
@@ -45,7 +40,7 @@ echo Dang dung Python %PYVER%
 if not exist voice_clone_env (
   py %PYVER% -m venv voice_clone_env
   if errorlevel 1 (
-    echo Khong tao duoc moi truong voice_clone_env bang Python %PYVER%.
+    echo Khong tao duoc voice_clone_env.
     pause
     exit /b 1
   )
@@ -54,15 +49,43 @@ if not exist voice_clone_env (
 call voice_clone_env\Scripts\activate.bat
 python --version
 python -m pip install --upgrade pip setuptools wheel
-pip install "TTS==0.22.0"
-if errorlevel 1 (
-  echo.
-  echo Cai XTTS that bai. Xem loi o tren.
-  pause
-  exit /b 1
-)
+if errorlevel 1 goto :FAIL
 
 echo.
-echo DA CAI XONG VOICE CLONE XTTS.
-echo Mo lai VideoRecapCutter.exe va chon giọng trong Kho giong mau.
+echo [1/3] Cai PyTorch / torchaudio...
+python -m pip install --upgrade torch torchaudio
+if errorlevel 1 goto :FAIL
+
+echo.
+echo [2/3] Cai torchcodec neu can...
+python -m pip install --upgrade torchcodec
+if errorlevel 1 echo Canh bao: torchcodec khong cai duoc, tiep tuc thu Coqui TTS.
+
+echo.
+echo [3/3] Cai Coqui TTS ban moi co wheel Windows...
+python -m pip uninstall -y TTS >nul 2>nul
+python -m pip install --upgrade "coqui-tts==0.27.5"
+if errorlevel 1 goto :FAIL
+
+echo.
+echo Dang kiem tra XTTS...
+python -c "from TTS.api import TTS; import torch; print('XTTS READY - torch', torch.__version__)"
+if errorlevel 1 goto :FAIL
+
+echo.
+echo ============================================================
+echo  DA CAI XONG VOICE CLONE XTTS
+echo ============================================================
+echo Mo lai VideoRecapCutter.exe, vao Kho giong mau va chon giong.
+echo Lan dau bam Nghe thu / Chay, XTTS se tai model xtts_v2 lon.
 pause
+exit /b 0
+
+:FAIL
+echo.
+echo ============================================================
+echo  CAI XTTS THAT BAI
+echo ============================================================
+echo Chup phan loi CUOI CUNG cua cua so nay gui lai de sua tiep.
+pause
+exit /b 1
