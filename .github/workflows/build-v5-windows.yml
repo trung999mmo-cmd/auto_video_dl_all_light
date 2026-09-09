@@ -8,6 +8,7 @@ on:
       - 'app_v4.py'
       - 'app_v3.py'
       - 'app_v2.py'
+      - 'recap_core_v5.py'
       - 'recap_core_v4.py'
       - 'recap_core_v2.py'
       - 'voice_clone_worker.py'
@@ -79,6 +80,7 @@ jobs:
             --hidden-import selenium.webdriver.chrome.service `
             --hidden-import selenium.webdriver.common.by `
             --hidden-import selenium.webdriver.common.keys `
+            --hidden-import selenium.webdriver.common.action_chains `
             --hidden-import selenium.webdriver.support.ui `
             --hidden-import undetected_chromedriver `
             --hidden-import requests `
@@ -106,6 +108,7 @@ jobs:
           Copy-Item app_v4.py package\source\app_v4.py
           Copy-Item app_v3.py package\source\app_v3.py
           Copy-Item app_v2.py package\source\app_v2.py
+          Copy-Item recap_core_v5.py package\source\recap_core_v5.py
           Copy-Item recap_core_v4.py package\source\recap_core_v4.py
           Copy-Item recap_core_v2.py package\source\recap_core_v2.py
           Copy-Item voice_clone_worker.py package\source\voice_clone_worker.py
@@ -114,23 +117,27 @@ jobs:
           @"
           VIDEO RECAP CUTTER V5 - BAN DAY DU
 
-          KHONG CAN CHEP THEM FILE FIX RIENG.
+          SUA QUAN TRONG WEB AI:
+          - Dinh kem VIDEO truoc.
+          - KHONG gui bat ky doan prompt nao trong luc dien prompt.
+          - Dien TOAN BO prompt dai vao cung mot o chat.
+          - Kiem tra prompt da vao du.
+          - Sau do moi bam GUI DUNG 1 LAN.
+          => VIDEO + TOAN BO PROMPT nam trong CUNG MOT TIN NHAN nhu tool mau.
 
           LAN DAU:
           1. Giai nen ZIP ra mot thu muc rieng.
           2. Neu dung Giong cua toi / Voice Clone: chay INSTALL-VOICE-CLONE.bat MOT LAN.
-          3. File cai da gom san: Coqui TTS 0.27.5 + Transformers 4.57.6 + HuggingFace Hub tuong thich.
+          3. File cai gom Coqui TTS 0.27.5 + Transformers 4.57.6 + HuggingFace Hub tuong thich.
           4. Mo VideoRecapCutter.exe.
-          5. Nhap VietVoice hoac them WAV/MP3 mau, sau do bam Nghe thu giong.
-          6. Lan dau XTTS se hien hop xac nhan dieu khoan CPML. Chi dong y neu ban da doc va chap nhan dieu khoan cho muc dich su dung cua minh.
-          7. Sau khi dong y, model XTTS v2 co the tai file lon. Cho tai xong, tool se mo audio nghe thu.
+          5. Nhap VietVoice hoac them WAV/MP3 mau.
 
           LUONG RECAP:
-          - Tool gui VIDEO GOC len ChatGPT/Gemini Web.
-          - Tu dong chen Lay X / Bo Y + ngon ngu vao prompt recap.
+          - Tool dinh kem VIDEO GOC len ChatGPT/Gemini Web.
+          - Tool tu chen Lay X / Bo Y + ngon ngu vao prompt recap dai.
+          - VIDEO + TOAN BO prompt duoc gui cung mot lan.
           - Khoa SRT theo timeline video sau cat.
           - Tao TTS truoc, sau do cat video va ghep giong vao video cuoi.
-          - Neu loi Nghe thu, V5 hien loi that + log cuoi, khong con popup chi ghi None.
           "@ | Out-File -Encoding utf8 package\DOC-TRUOC.txt
 
           @"
@@ -167,4 +174,4 @@ jobs:
             --repo "${{ github.repository }}" `
             --target "${{ github.sha }}" `
             --title "VideoRecapCutter V5 Full" `
-            --notes "V5 full: integrated XTTS installer compatibility fix, visible CPML first-run consent, real voice-preview errors/logs, V4 mapped ChatGPT/Gemini recap workflow."
+            --notes "V5 full: video attachment and complete multiline recap prompt are sent together in one message; integrated XTTS installer fixes and preview diagnostics."
