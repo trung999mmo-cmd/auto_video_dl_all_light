@@ -1,6 +1,7 @@
 google-generativeai>=0.8.3
 selenium>=4.25.0
 webdriver-manager>=4.0.2
+undetected-chromedriver>=3.5.5
 edge-tts>=6.1.15
 requests>=2.32.3
 pyinstaller>=6.10.0
