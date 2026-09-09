@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import traceback
 import wave
 from pathlib import Path
 
@@ -61,6 +62,55 @@ def fit_and_delay(ffmpeg: str, src: str, dst: str, st: float, en: float):
     subprocess.run([ffmpeg, "-y", "-i", src, "-af", af, "-ac", "2", "-ar", "44100", dst], check=True)
 
 
+def _message(kind: str, title: str, text: str) -> bool:
+    """Show a visible Windows/Tk dialog even though the parent EXE is windowed."""
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            root.attributes("-topmost", True)
+        except Exception:
+            pass
+        if kind == "yesno":
+            result = bool(messagebox.askyesno(title, text, parent=root))
+        elif kind == "info":
+            messagebox.showinfo(title, text, parent=root)
+            result = True
+        else:
+            messagebox.showerror(title, text, parent=root)
+            result = False
+        root.destroy()
+        return result
+    except Exception:
+        return False
+
+
+def ensure_xtts_terms() -> None:
+    """Get explicit consent once instead of letting Coqui ask on an invisible console."""
+    marker = Path(__file__).resolve().parent / ".xtts_cpml_agreed"
+    if os.environ.get("COQUI_TOS_AGREED") == "1" or marker.exists():
+        os.environ["COQUI_TOS_AGREED"] = "1"
+        return
+
+    text = (
+        "XTTS v2 yêu cầu bạn xác nhận điều khoản Coqui Public Model License (CPML) trước lần tải model đầu tiên.\n\n"
+        "Hãy đọc điều khoản tại: https://coqui.ai/cpml\n\n"
+        "Chỉ bấm Yes nếu bạn đã đọc, đồng ý và việc sử dụng của bạn phù hợp với điều khoản. "
+        "Nếu bạn dùng cho mục đích thương mại/kiếm tiền, hãy kiểm tra quyền sử dụng trước khi tiếp tục.\n\n"
+        "Bạn có đồng ý tiếp tục không?"
+    )
+    if not _message("yesno", "Xác nhận điều khoản XTTS v2", text):
+        raise RuntimeError("Bạn chưa xác nhận điều khoản XTTS v2 (CPML).")
+
+    marker.write_text(
+        "User confirmed they read and agreed to the XTTS v2 CPML terms for their intended use.\n",
+        encoding="utf-8",
+    )
+    os.environ["COQUI_TOS_AGREED"] = "1"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--srt", required=True)
@@ -74,16 +124,23 @@ def main():
         import torch
         from TTS.api import TTS
     except Exception as e:
-        raise SystemExit("Chưa cài Coqui TTS/XTTS. Hãy chạy INSTALL-VOICE-CLONE.bat. Chi tiết: " + str(e))
+        raise RuntimeError("Không import được Coqui TTS/XTTS: " + repr(e)) from e
 
     items = parse_srt(args.srt)
     if not items:
-        raise SystemExit("SRT không có câu hợp lệ")
+        raise RuntimeError("SRT không có câu hợp lệ")
     if not Path(args.sample).exists():
-        raise SystemExit("Không tìm thấy audio giọng mẫu")
+        raise FileNotFoundError("Không tìm thấy audio giọng mẫu: " + args.sample)
+
+    ensure_xtts_terms()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("Đang tải XTTS v2 trên", device, "- lần đầu có thể phải tải model lớn...")
+    print("Đang tải/khởi tạo XTTS v2 trên", device, "- lần đầu có thể phải tải model lớn...", flush=True)
+    _message(
+        "info",
+        "XTTS đang khởi tạo",
+        "XTTS v2 bắt đầu khởi tạo. Lần đầu có thể phải tải model khá lớn. Sau khi bấm OK, hãy chờ; khi xong tool sẽ tự mở file nghe thử.",
+    )
     tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
     tmp = Path(tempfile.mkdtemp(prefix="xtts_recap_"))
@@ -92,7 +149,7 @@ def main():
         for i, (st, en, text) in enumerate(items):
             raw = tmp / f"raw_{i:05}.wav"
             delayed = tmp / f"tts_{i:05}.wav"
-            print(f"XTTS {i + 1}/{len(items)}: {text[:80]}")
+            print(f"XTTS {i + 1}/{len(items)}: {text[:80]}", flush=True)
             tts.tts_to_file(text=text, speaker_wav=args.sample, language=args.language, file_path=str(raw))
             fit_and_delay(args.ffmpeg, str(raw), str(delayed), st, en)
             clips.append(delayed)
@@ -107,4 +164,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BaseException as e:
+        detail = traceback.format_exc()
+        print(detail, flush=True)
+        msg = f"{type(e).__name__}: {e!s}"
+        if not str(e).strip():
+            msg = f"{type(e).__name__}: không có nội dung lỗi"
+        _message("error", "Lỗi Voice Clone XTTS", msg + "\n\nChi tiết cuối:\n" + detail[-1800:])
+        raise
