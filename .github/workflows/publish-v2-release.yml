@@ -27,17 +27,13 @@ jobs:
           unzip -o artifact.zip -d artifact
           find artifact -maxdepth 3 -type f -printf '%p %k KB\n'
 
-      - name: Locate release ZIP
-        id: locate
+      - name: Create release ZIP
         shell: bash
         run: |
-          ASSET=$(find artifact -type f -name 'VideoRecapCutter-V2-Full.zip' | head -n 1)
-          if [ -z "$ASSET" ]; then
-            echo 'VideoRecapCutter-V2-Full.zip not found in artifact'
-            exit 1
-          fi
-          cp "$ASSET" ./VideoRecapCutter-V2-Full.zip
-          echo "asset=VideoRecapCutter-V2-Full.zip" >> "$GITHUB_OUTPUT"
+          cd artifact
+          zip -r -9 ../VideoRecapCutter-V2-Full.zip .
+          cd ..
+          ls -lh VideoRecapCutter-V2-Full.zip
           sha256sum VideoRecapCutter-V2-Full.zip
 
       - name: Publish stable release
