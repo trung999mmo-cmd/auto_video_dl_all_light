@@ -1,0 +1,62 @@
+name: Build VideoRecapCutter Windows
+
+on:
+  push:
+    branches: [video-recap-cutter]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: video-recap-cutter
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download FFmpeg essentials
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path tools | Out-Null
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_unpack -Force
+          $bin = Get-ChildItem -Path ffmpeg_unpack -Recurse -Directory -Filter bin | Select-Object -First 1
+          Copy-Item "$($bin.FullName)\ffmpeg.exe" tools\ffmpeg.exe
+          Copy-Item "$($bin.FullName)\ffprobe.exe" tools\ffprobe.exe
+
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed `
+            --name VideoRecapCutter `
+            --add-binary "tools\ffmpeg.exe;." `
+            --add-binary "tools\ffprobe.exe;." `
+            --hidden-import selenium `
+            --hidden-import edge_tts `
+            --hidden-import google.generativeai `
+            app.py
+
+      - name: Prepare package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item dist\VideoRecapCutter.exe package\VideoRecapCutter.exe
+          Copy-Item README-VIDEO-RECAP.md package\HUONG-DAN.txt
+          Compress-Archive -Path package\* -DestinationPath VideoRecapCutter-Windows.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VideoRecapCutter-Windows
+          path: |
+            package/VideoRecapCutter.exe
+            VideoRecapCutter-Windows.zip
+          if-no-files-found: error
