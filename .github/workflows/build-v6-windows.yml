@@ -1,0 +1,174 @@
+name: Build VideoRecapCutter V6 Windows
+
+on:
+  push:
+    branches: [video-recap-cutter]
+    paths:
+      - 'app_v6.py'
+      - 'app_v5.py'
+      - 'app_v4.py'
+      - 'app_v3.py'
+      - 'app_v2.py'
+      - 'recap_core_v6.py'
+      - 'recap_core_v5.py'
+      - 'recap_core_v4.py'
+      - 'recap_core_v2.py'
+      - 'voice_clone_worker.py'
+      - 'INSTALL-VOICE-CLONE.bat'
+      - 'requirements.txt'
+      - '.github/workflows/build-v6-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: video-recap-cutter
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download FFmpeg essentials
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path tools | Out-Null
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_unpack -Force
+          $bin = Get-ChildItem -Path ffmpeg_unpack -Recurse -Directory -Filter bin | Select-Object -First 1
+          Copy-Item "$($bin.FullName)\ffmpeg.exe" tools\ffmpeg.exe
+          Copy-Item "$($bin.FullName)\ffprobe.exe" tools\ffprobe.exe
+
+      - name: Download Piper Windows runtime
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip" -OutFile piper.zip
+          Expand-Archive piper.zip -DestinationPath piper_unpack -Force
+          $piperDir = Get-ChildItem -Path piper_unpack -Recurse -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'piper.exe') } | Select-Object -First 1
+          if (-not $piperDir) { throw 'Không tìm thấy piper.exe sau khi giải nén' }
+          New-Item -ItemType Directory -Force -Path piper_runtime | Out-Null
+          Copy-Item "$($piperDir.FullName)\*" piper_runtime -Recurse -Force
+
+      - name: Download bundled Vietnamese Piper voice
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path voice_bundle | Out-Null
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx"
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx.json?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx.json"
+
+      - name: Build V6 EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed `
+            --name VideoRecapCutter `
+            --add-binary "tools\ffmpeg.exe;." `
+            --add-binary "tools\ffprobe.exe;." `
+            --collect-all selenium `
+            --collect-submodules edge_tts `
+            --collect-submodules google.generativeai `
+            --hidden-import selenium.webdriver.chrome.options `
+            --hidden-import selenium.webdriver.chrome.service `
+            --hidden-import selenium.webdriver.common.by `
+            --hidden-import selenium.webdriver.common.keys `
+            --hidden-import selenium.webdriver.common.action_chains `
+            --hidden-import selenium.webdriver.support.ui `
+            --hidden-import requests `
+            app_v6.py
+
+      - name: Prepare V6 full package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voices | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voice_profiles | Out-Null
+          New-Item -ItemType Directory -Force -Path package\chrome_web_profile | Out-Null
+          New-Item -ItemType Directory -Force -Path package\piper | Out-Null
+          New-Item -ItemType Directory -Force -Path package\source | Out-Null
+
+          Copy-Item dist\VideoRecapCutter.exe package\VideoRecapCutter.exe
+          Copy-Item tools\ffmpeg.exe package\ffmpeg.exe
+          Copy-Item tools\ffprobe.exe package\ffprobe.exe
+          Copy-Item piper_runtime\* package\piper -Recurse -Force
+          Copy-Item voice_bundle\* package\voices -Force
+          Copy-Item INSTALL-VOICE-CLONE.bat package\INSTALL-VOICE-CLONE.bat
+          Copy-Item voice_clone_worker.py package\voice_clone_worker.py
+
+          Copy-Item app_v6.py package\source\app_v6.py
+          Copy-Item app_v5.py package\source\app_v5.py
+          Copy-Item app_v4.py package\source\app_v4.py
+          Copy-Item app_v3.py package\source\app_v3.py
+          Copy-Item app_v2.py package\source\app_v2.py
+          Copy-Item recap_core_v6.py package\source\recap_core_v6.py
+          Copy-Item recap_core_v5.py package\source\recap_core_v5.py
+          Copy-Item recap_core_v4.py package\source\recap_core_v4.py
+          Copy-Item recap_core_v2.py package\source\recap_core_v2.py
+          Copy-Item voice_clone_worker.py package\source\voice_clone_worker.py
+          Copy-Item requirements.txt package\source\requirements.txt
+
+          @"
+          VIDEO RECAP CUTTER V6 - BAN DAY DU
+
+          SUA 4 LOI CHINH TU V5:
+          1. Chrome: tool dung MOT Chrome rieng co dinh trong LocalAppData. Lan dau dang nhap, ve sau bam lai DUNG Chrome do; khong hien man hinh chon profile.
+          2. Khong dung undetected-chromedriver nua, tranh loi ChromeDriver 153 trong khi Chrome 152. Selenium Manager bam vao Chrome rieng dang mo.
+          3. Web AI: dinh kem video -> cho upload -> tim o prompt toi da 90s -> dien DU prompt -> gui DUNG 1 lan -> xac nhan da gui.
+          4. Voice Clone: worker ep UTF-8, sua loi UnicodeEncodeError cp1252 khi in tieng Viet.
+
+          LAN DAU:
+          - Giai nen ZIP.
+          - Neu dung Voice Clone: chay INSTALL-VOICE-CLONE.bat mot lan.
+          - Mo VideoRecapCutter.exe.
+          - Bam Mo Gemini / ChatGPT, dang nhap tren Chrome rieng. CO THE GIU CHROME MO.
+          - Tu lan sau tool dung lai dung Chrome/session do.
+
+          CHUYEN DU LIEU TU V5:
+          - voice_profiles: co the copy sang V6 de giu giong mau.
+          - chrome_web_profile: khong bat buoc. Neu ban copy thu muc cu sang V6, V6 se tu chuyen vao profile co dinh trong LocalAppData lan dau.
+          - KHONG copy voice_clone_env; chay INSTALL-VOICE-CLONE.bat trong V6.
+          "@ | Out-File -Encoding utf8 package\DOC-TRUOC.txt
+
+          @"
+          KHO GIONG MAU CUA BAN
+          - Copy cac profile cu vao day neu muon giu giong mau.
+          - Hoac bam Nhap thu muc VietVoice trong tool.
+          "@ | Out-File -Encoding utf8 package\voice_profiles\README.txt
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          if (Test-Path VideoRecapCutter-V6-Full.zip) { Remove-Item VideoRecapCutter-V6-Full.zip -Force }
+          Compress-Archive -Path package\* -DestinationPath VideoRecapCutter-V6-Full.zip -CompressionLevel Optimal
+          Get-Item VideoRecapCutter-V6-Full.zip | Format-List Name,Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VideoRecapCutter-V6-Full
+          path: VideoRecapCutter-V6-Full.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish stable V6 release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v6-latest --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete v6-latest --repo "${{ github.repository }}" --cleanup-tag -y
+          }
+          gh release create v6-latest VideoRecapCutter-V6-Full.zip `
+            --repo "${{ github.repository }}" `
+            --target "${{ github.sha }}" `
+            --title "VideoRecapCutter V6 Full" `
+            --notes "V6: one persistent dedicated Chrome, no profile picker, Selenium Manager attach, robust prompt-box wait/send verification, single-run guard, UTF-8 XTTS worker."
