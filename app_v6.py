@@ -11,8 +11,23 @@ from app_v5 import AppV5
 import recap_core_v6 as core_v6
 
 # AppV4.pipeline() resolves this function from globals in app_v4.
-# Route it to the V6 Web AI implementation.
 app4.web_ai_srt_mapped_chunked = core_v6.web_ai_srt_mapped_chunked
+
+# When the dedicated Chrome is already running, DO NOT launch another Chrome
+# window. Return the same debugging port so Selenium attaches to the exact
+# existing browser/session. Only the very first call actually starts Chrome.
+_original_open_tool_browser = core_v6.open_tool_browser
+
+def _reuse_exact_tool_browser(profile_dir: str, url: str, log=print) -> int:
+    profile = str(Path(profile_dir).resolve())
+    Path(profile).mkdir(parents=True, exist_ok=True)
+    port = core_v6._choose_debug_port(profile)
+    if core_v6._debug_ready(port):
+        log(f"INFO: Chrome rieng dang mo san -> bam dung browser hien tai, KHONG mo them cua so. Port {port}.")
+        return port
+    return _original_open_tool_browser(profile, url, log)
+
+core_v6.open_tool_browser = _reuse_exact_tool_browser
 
 
 class AppV6(AppV5):
@@ -25,10 +40,9 @@ class AppV6(AppV5):
         self.title("Video Recap Cutter V6")
         self._pipeline_running = False
 
-        # IMPORTANT: use a NEW, clean, stable profile outside the version folder.
-        # Do not import the old V5 Chrome profile because that profile may contain
-        # Chrome's multi-profile picker state. The user logs in once here; V6 and
-        # later versions can keep reusing this exact folder automatically.
+        # Use a NEW, clean, stable profile outside the version folder.
+        # Do not import the old V5 Chrome profile because it may contain Chrome's
+        # multi-profile picker state. Log in once here; later versions can reuse it.
         local = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
         stable = local / "VideoRecapCutter" / "ChromeProfile"
         stable.mkdir(parents=True, exist_ok=True)
@@ -39,6 +53,7 @@ class AppV6(AppV5):
         self._replace_old_chrome_hint(self)
         self.log("V6: Chrome rieng SACH va co dinh: " + str(stable))
         self.log("V6: KHONG dung chrome_web_profile cu cua V5. Lan dau dang nhap ChatGPT mot lan; sau do tool dung lai dung Chrome nay.")
+        self.log("V6: Chrome dang mo thi tool bam vao dung cua so do, KHONG mo them Chrome khac.")
         self.log("V6: Da chan bam Chay 2 lan cung luc.")
 
     def _replace_old_chrome_hint(self, widget):
@@ -60,14 +75,28 @@ class AppV6(AppV5):
         mode = self.vars["web_mode"].get()
         url = "https://gemini.google.com/" if mode.startswith("Gemini") else "https://chatgpt.com/"
         try:
-            core_v6.open_tool_browser(str(self.web_profile_path), url, self.log)
-            messagebox.showinfo(
-                "Chrome riêng của tool",
-                "Đã mở Chrome RIÊNG của Video Recap Cutter.\n\n"
-                "Lần đầu chỉ cần đăng nhập ChatGPT/Gemini trong Chrome này. "
-                "Không cần chọn hồ sơ Chrome và KHÔNG cần đóng cửa sổ trước khi chạy.\n\n"
-                "Từ lần sau tool sẽ dùng lại đúng Chrome/session này."
-            )
+            already_open = False
+            profile = str(self.web_profile_path)
+            try:
+                port = core_v6._choose_debug_port(profile)
+                already_open = core_v6._debug_ready(port)
+            except Exception:
+                pass
+
+            core_v6.open_tool_browser(profile, url, self.log)
+            if already_open:
+                messagebox.showinfo(
+                    "Chrome riêng đang mở",
+                    "Chrome riêng của tool đang mở sẵn. Tool sẽ dùng đúng cửa sổ/session đó, không mở thêm Chrome mới."
+                )
+            else:
+                messagebox.showinfo(
+                    "Chrome riêng của tool",
+                    "Đã mở Chrome RIÊNG của Video Recap Cutter.\n\n"
+                    "Lần đầu chỉ cần đăng nhập ChatGPT/Gemini trong Chrome này. "
+                    "Không cần chọn hồ sơ Chrome và KHÔNG cần đóng cửa sổ trước khi chạy.\n\n"
+                    "Từ lần sau tool sẽ dùng lại đúng Chrome/session này."
+                )
         except Exception as e:
             messagebox.showerror("Không mở được Chrome riêng", str(e))
 
