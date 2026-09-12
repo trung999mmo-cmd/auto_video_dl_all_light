@@ -5,10 +5,23 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import traceback
 import wave
 from pathlib import Path
+
+# Windows may start this worker with cp1252 stdout even though the GUI reads UTF-8.
+# Force UTF-8 so Vietnamese progress/error text never crashes the worker.
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("PYTHONUTF8", "1")
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 
 def fmt(sec: float) -> str:
@@ -63,7 +76,6 @@ def fit_and_delay(ffmpeg: str, src: str, dst: str, st: float, en: float):
 
 
 def _message(kind: str, title: str, text: str) -> bool:
-    """Show a visible Windows/Tk dialog even though the parent EXE is windowed."""
     try:
         import tkinter as tk
         from tkinter import messagebox
@@ -88,7 +100,6 @@ def _message(kind: str, title: str, text: str) -> bool:
 
 
 def ensure_xtts_terms() -> None:
-    """Get explicit consent once instead of letting Coqui ask on an invisible console."""
     marker = Path(__file__).resolve().parent / ".xtts_cpml_agreed"
     if os.environ.get("COQUI_TOS_AGREED") == "1" or marker.exists():
         os.environ["COQUI_TOS_AGREED"] = "1"
