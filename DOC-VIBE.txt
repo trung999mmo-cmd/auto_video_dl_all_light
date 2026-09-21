@@ -1,0 +1,26 @@
+VIBE VIDEO - BẢN ĐẦY ĐỦ
+
+LẦN ĐẦU:
+1. Giải nén ZIP ra một thư mục riêng.
+2. Nếu dùng giọng mẫu/VietVoice: chạy INSTALL-VIBE-VOICE.bat MỘT LẦN.
+3. Mở "Vibe Video.exe".
+4. Bấm Mở Gemini / ChatGPT, đăng nhập trong Chrome riêng Vibe Video MỘT LẦN.
+5. Từ lần sau có thể giữ Chrome mở; tool bám lại đúng Chrome đó.
+6. Thêm/Nhập giọng mẫu, chọn giọng và bấm Nghe thử giọng trước.
+7. Chọn video, Lấy/Bỏ, ngôn ngữ, Web AI và bấm Cắt video / tạo recap.
+
+DỮ LIỆU ĐƯỢC NHỚ CỐ ĐỊNH:
+- Chrome: %LOCALAPPDATA%\VibeVideo\ChromeProfile
+- Giọng mẫu: %LOCALAPPDATA%\VibeVideo\VoiceProfiles
+Khi cập nhật Vibe Video sau này, không cần copy Chrome profile/giọng nữa.
+
+VOICE CLONE:
+- Mẫu MP3/WAV/M4A/FLAC được chuẩn hóa sang WAV mono 24k trước khi clone.
+- Khuyến nghị mẫu sạch, chỉ một người nói, ít nhạc nền, khoảng 6-20 giây.
+- Lần đầu XTTS sẽ yêu cầu bạn đọc/đồng ý CPML và tải model.
+- Bạn có thể bấm Nghe thử giọng trước khi chạy cả video.
+
+WEB AI:
+- Vibe Video dùng một Chrome riêng, đăng nhập một lần.
+- Tool đính kèm video trước, chờ upload, điền toàn bộ prompt, rồi gửi đúng một lần.
+- Không dùng undetected-chromedriver; Selenium Manager bám theo Chrome hiện có để tránh lệch phiên bản driver.
