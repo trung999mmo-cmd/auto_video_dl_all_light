@@ -26,6 +26,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: vibe-video-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
