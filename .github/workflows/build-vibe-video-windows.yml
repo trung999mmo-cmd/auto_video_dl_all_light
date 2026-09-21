@@ -9,6 +9,8 @@ on:
       - 'vibe_voice_worker.py'
       - 'INSTALL-VIBE-VOICE.bat'
       - 'requirements-vibe.txt'
+      - 'DOC-VIBE.txt'
+      - 'VOICE-PROFILES-README.txt'
       - 'app_v6.py'
       - 'app_v5.py'
       - 'app_v4.py'
@@ -104,6 +106,8 @@ jobs:
           Copy-Item voice_bundle\* package\voices -Force
           Copy-Item INSTALL-VIBE-VOICE.bat package\INSTALL-VIBE-VOICE.bat
           Copy-Item vibe_voice_worker.py package\vibe_voice_worker.py
+          Copy-Item DOC-VIBE.txt package\DOC-TRUOC.txt
+          Copy-Item VOICE-PROFILES-README.txt package\voice_profiles\README.txt
 
           Copy-Item app_vibe.py package\source\app_vibe.py
           Copy-Item vibe_core.py package\source\vibe_core.py
@@ -118,35 +122,6 @@ jobs:
           Copy-Item recap_core_v4.py package\source\recap_core_v4.py
           Copy-Item recap_core_v2.py package\source\recap_core_v2.py
           Copy-Item requirements-vibe.txt package\source\requirements-vibe.txt
-
-          @"
-VIBE VIDEO - BAN DAY DU
-
-LAN DAU:
-1. Giai nen ZIP ra thu muc rieng.
-2. Neu dung giong mau/VietVoice: chay INSTALL-VIBE-VOICE.bat MOT LAN.
-3. Mo "Vibe Video.exe".
-4. Bam Mo Gemini / ChatGPT, dang nhap trong Chrome rieng Vibe Video MOT LAN.
-5. Tu lan sau co the giu Chrome mo; tool bam lai dung Chrome do.
-6. Them/Nhap giong mau, chon giong va bam Nghe thu giong truoc.
-7. Chon video, Lay/Bo, ngon ngu, Web AI va bam Cat video / tao recap.
-
-DU LIEU DUOC NHO CO DINH:
-- Chrome: %LOCALAPPDATA%\VibeVideo\ChromeProfile
-- Giong mau: %LOCALAPPDATA%\VibeVideo\VoiceProfiles
-=> Khi cap nhat Vibe Video sau nay, khong can copy Chrome profile/giong nua.
-
-VOICE CLONE:
-- Mau MP3/WAV/M4A/FLAC se duoc chuyen sang WAV mono 24k truoc khi clone.
-- Khuyen nghi mau sach, 1 nguoi noi, it nhac nen, khoang 6-20 giay.
-- Lan dau XTTS se yeu cau ban doc/dong y CPML va tai model.
-"@ | Out-File -Encoding utf8 package\DOC-TRUOC.txt
-
-          @"
-Thu muc nay chi de nhap du lieu cu neu can.
-Vibe Video tu dong luu giong lau dai o:
-%LOCALAPPDATA%\VibeVideo\VoiceProfiles
-"@ | Out-File -Encoding utf8 package\voice_profiles\README.txt
 
       - name: Create ZIP
         shell: pwsh
@@ -175,4 +150,4 @@ Vibe Video tu dong luu giong lau dai o:
             --repo "${{ github.repository }}" `
             --target "${{ github.sha }}" `
             --title "Vibe Video Full" `
-            --notes "Vibe Video: persistent single Chrome, one-message video+prompt Web AI flow, persistent voice library, XTTS voice clone with preview and Windows UTF-8 fixes."
+            --notes "Vibe Video: single persistent Chrome, one-message video+prompt Web AI, persistent voice library, XTTS clone with preview and Windows UTF-8 fixes."
