@@ -1,0 +1,178 @@
+name: Build Vibe Video Windows
+
+on:
+  push:
+    branches: [video-recap-cutter]
+    paths:
+      - 'app_vibe.py'
+      - 'vibe_core.py'
+      - 'vibe_voice_worker.py'
+      - 'INSTALL-VIBE-VOICE.bat'
+      - 'requirements-vibe.txt'
+      - 'app_v6.py'
+      - 'app_v5.py'
+      - 'app_v4.py'
+      - 'app_v3.py'
+      - 'app_v2.py'
+      - 'recap_core_v6.py'
+      - 'recap_core_v5.py'
+      - 'recap_core_v4.py'
+      - 'recap_core_v2.py'
+      - '.github/workflows/build-vibe-video-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: video-recap-cutter
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install app dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-vibe.txt
+
+      - name: Download FFmpeg
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path tools | Out-Null
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_unpack -Force
+          $bin = Get-ChildItem -Path ffmpeg_unpack -Recurse -Directory -Filter bin | Select-Object -First 1
+          Copy-Item "$($bin.FullName)\ffmpeg.exe" tools\ffmpeg.exe
+          Copy-Item "$($bin.FullName)\ffprobe.exe" tools\ffprobe.exe
+
+      - name: Download Piper runtime
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip" -OutFile piper.zip
+          Expand-Archive piper.zip -DestinationPath piper_unpack -Force
+          $piperDir = Get-ChildItem -Path piper_unpack -Recurse -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'piper.exe') } | Select-Object -First 1
+          if (-not $piperDir) { throw 'Khong tim thay piper.exe' }
+          New-Item -ItemType Directory -Force -Path piper_runtime | Out-Null
+          Copy-Item "$($piperDir.FullName)\*" piper_runtime -Recurse -Force
+
+      - name: Download Vietnamese Piper voice
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path voice_bundle | Out-Null
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx"
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx.json?download=true" -OutFile "voice_bundle\vi_VN-vais1000-medium.onnx.json"
+
+      - name: Build Vibe Video EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed `
+            --name "Vibe Video" `
+            --add-binary "tools\ffmpeg.exe;." `
+            --add-binary "tools\ffprobe.exe;." `
+            --collect-all selenium `
+            --collect-submodules edge_tts `
+            --collect-submodules google.generativeai `
+            --hidden-import selenium.webdriver.chrome.options `
+            --hidden-import selenium.webdriver.chrome.service `
+            --hidden-import selenium.webdriver.common.by `
+            --hidden-import selenium.webdriver.common.keys `
+            --hidden-import selenium.webdriver.common.action_chains `
+            --hidden-import selenium.webdriver.support.ui `
+            --hidden-import requests `
+            app_vibe.py
+
+      - name: Prepare full package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voices | Out-Null
+          New-Item -ItemType Directory -Force -Path package\voice_profiles | Out-Null
+          New-Item -ItemType Directory -Force -Path package\piper | Out-Null
+          New-Item -ItemType Directory -Force -Path package\source | Out-Null
+
+          Copy-Item "dist\Vibe Video.exe" "package\Vibe Video.exe"
+          Copy-Item tools\ffmpeg.exe package\ffmpeg.exe
+          Copy-Item tools\ffprobe.exe package\ffprobe.exe
+          Copy-Item piper_runtime\* package\piper -Recurse -Force
+          Copy-Item voice_bundle\* package\voices -Force
+          Copy-Item INSTALL-VIBE-VOICE.bat package\INSTALL-VIBE-VOICE.bat
+          Copy-Item vibe_voice_worker.py package\vibe_voice_worker.py
+
+          Copy-Item app_vibe.py package\source\app_vibe.py
+          Copy-Item vibe_core.py package\source\vibe_core.py
+          Copy-Item vibe_voice_worker.py package\source\vibe_voice_worker.py
+          Copy-Item app_v6.py package\source\app_v6.py
+          Copy-Item app_v5.py package\source\app_v5.py
+          Copy-Item app_v4.py package\source\app_v4.py
+          Copy-Item app_v3.py package\source\app_v3.py
+          Copy-Item app_v2.py package\source\app_v2.py
+          Copy-Item recap_core_v6.py package\source\recap_core_v6.py
+          Copy-Item recap_core_v5.py package\source\recap_core_v5.py
+          Copy-Item recap_core_v4.py package\source\recap_core_v4.py
+          Copy-Item recap_core_v2.py package\source\recap_core_v2.py
+          Copy-Item requirements-vibe.txt package\source\requirements-vibe.txt
+
+          @"
+VIBE VIDEO - BAN DAY DU
+
+LAN DAU:
+1. Giai nen ZIP ra thu muc rieng.
+2. Neu dung giong mau/VietVoice: chay INSTALL-VIBE-VOICE.bat MOT LAN.
+3. Mo "Vibe Video.exe".
+4. Bam Mo Gemini / ChatGPT, dang nhap trong Chrome rieng Vibe Video MOT LAN.
+5. Tu lan sau co the giu Chrome mo; tool bam lai dung Chrome do.
+6. Them/Nhap giong mau, chon giong va bam Nghe thu giong truoc.
+7. Chon video, Lay/Bo, ngon ngu, Web AI va bam Cat video / tao recap.
+
+DU LIEU DUOC NHO CO DINH:
+- Chrome: %LOCALAPPDATA%\VibeVideo\ChromeProfile
+- Giong mau: %LOCALAPPDATA%\VibeVideo\VoiceProfiles
+=> Khi cap nhat Vibe Video sau nay, khong can copy Chrome profile/giong nua.
+
+VOICE CLONE:
+- Mau MP3/WAV/M4A/FLAC se duoc chuyen sang WAV mono 24k truoc khi clone.
+- Khuyen nghi mau sach, 1 nguoi noi, it nhac nen, khoang 6-20 giay.
+- Lan dau XTTS se yeu cau ban doc/dong y CPML va tai model.
+"@ | Out-File -Encoding utf8 package\DOC-TRUOC.txt
+
+          @"
+Thu muc nay chi de nhap du lieu cu neu can.
+Vibe Video tu dong luu giong lau dai o:
+%LOCALAPPDATA%\VibeVideo\VoiceProfiles
+"@ | Out-File -Encoding utf8 package\voice_profiles\README.txt
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          if (Test-Path "Vibe-Video-Full.zip") { Remove-Item "Vibe-Video-Full.zip" -Force }
+          Compress-Archive -Path package\* -DestinationPath "Vibe-Video-Full.zip" -CompressionLevel Optimal
+          Get-Item "Vibe-Video-Full.zip" | Format-List Name,Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vibe-Video-Full
+          path: Vibe-Video-Full.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish stable Vibe Video release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view vibe-video-latest --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete vibe-video-latest --repo "${{ github.repository }}" --cleanup-tag -y
+          }
+          gh release create vibe-video-latest "Vibe-Video-Full.zip" `
+            --repo "${{ github.repository }}" `
+            --target "${{ github.sha }}" `
+            --title "Vibe Video Full" `
+            --notes "Vibe Video: persistent single Chrome, one-message video+prompt Web AI flow, persistent voice library, XTTS voice clone with preview and Windows UTF-8 fixes."
