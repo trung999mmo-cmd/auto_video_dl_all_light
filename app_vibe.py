@@ -60,6 +60,7 @@ class VibeVideo(AppV6):
             self.vars["chrome_profile"].set(str(stable_chrome))
 
         self._rebrand(self)
+        self._replace_path_labels(self, str(old_voice_dir), str(stable_voices))
         self.refresh_voices()
 
         self.log("VIBE VIDEO READY")
@@ -85,6 +86,19 @@ class VibeVideo(AppV6):
                 except Exception:
                     pass
                 self._rebrand(child)
+        except Exception:
+            pass
+
+    def _replace_path_labels(self, widget, old_path: str, new_path: str):
+        try:
+            for child in widget.winfo_children():
+                try:
+                    t = child.cget("text")
+                    if isinstance(t, str) and old_path and old_path in t:
+                        child.configure(text=t.replace(old_path, new_path))
+                except Exception:
+                    pass
+                self._replace_path_labels(child, old_path, new_path)
         except Exception:
             pass
 
