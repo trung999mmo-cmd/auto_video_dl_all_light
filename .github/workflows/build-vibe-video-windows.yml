@@ -8,6 +8,7 @@ on:
       - 'vibe_core.py'
       - 'vibe_voice_worker.py'
       - 'INSTALL-VIBE-VOICE.bat'
+      - 'SETUP-VIBE.bat'
       - 'requirements-vibe.txt'
       - 'DOC-VIBE.txt'
       - 'VOICE-PROFILES-README.txt'
@@ -47,16 +48,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-vibe.txt
-
-      - name: Download FFmpeg
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path tools | Out-Null
-          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
-          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_unpack -Force
-          $bin = Get-ChildItem -Path ffmpeg_unpack -Recurse -Directory -Filter bin | Select-Object -First 1
-          Copy-Item "$($bin.FullName)\ffmpeg.exe" tools\ffmpeg.exe
-          Copy-Item "$($bin.FullName)\ffprobe.exe" tools\ffprobe.exe
 
       - name: Download Piper runtime
         shell: pwsh
@@ -154,4 +145,4 @@ jobs:
             --repo "${{ github.repository }}" `
             --target "${{ github.sha }}" `
             --title "Vibe Video Full" `
-            --notes "Vibe Video: single persistent Chrome, one-message video+prompt Web AI, persistent voice library, XTTS clone with preview and Windows UTF-8 fixes."
+            --notes "Vibe Video compact: run SETUP-VIBE.bat once to install FFmpeg + XTTS. Persistent Chrome, one-message video+prompt, persistent voice library, voice preview."
